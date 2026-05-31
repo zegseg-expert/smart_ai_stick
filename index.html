@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Smart Walking Stick - Caregiver Dashboard</title>
     
-    <!-- Link to your manifest file (for PWA/APK) -->
+    <!-- Link to manifest.json (required for PWA/APK) -->
     <link rel="manifest" href="manifest.json">
     
-    <!-- Leaflet CSS (for map) -->
+    <!-- Leaflet CSS for map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <!-- Firebase SDK -->
@@ -34,13 +34,6 @@
             text-align: center;
             color: #1a73e8;
             margin-bottom: 20px;
-        }
-        .status-card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .stats-grid {
             display: grid;
@@ -151,8 +144,6 @@
 
     let map;
     let marker;
-    let isMapInitialized = false;
-
     const defaultLat = 28.6139;
     const defaultLng = 77.2090;
 
@@ -166,7 +157,6 @@
         
         marker = L.marker([defaultLat, defaultLng]).addTo(map);
         marker.bindPopup("Waiting for GPS fix...").openPopup();
-        isMapInitialized = true;
 
         const deviceRef = database.ref('/smartstick/device_001');
         
@@ -175,11 +165,9 @@
             if (data && data.latitude && data.longitude) {
                 const lat = data.latitude;
                 const lng = data.longitude;
-                if (marker) {
-                    marker.setLatLng([lat, lng]);
-                    marker.bindPopup(`📍 Current location<br>Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}`).openPopup();
-                    map.setView([lat, lng], 15);
-                }
+                marker.setLatLng([lat, lng]);
+                marker.bindPopup(`📍 Current location<br>Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}`).openPopup();
+                map.setView([lat, lng], 15);
                 document.getElementById('gpsStatusValue').innerHTML = '✅ Locked';
                 document.getElementById('gpsStatusValue').style.color = '#34a853';
                 if (data.timestamp) {
@@ -197,16 +185,11 @@
         deviceRef.child('sensors/obstacle_distance').on('value', (snapshot) => {
             const dist = snapshot.val();
             if (dist !== null && dist !== undefined) {
-                let displayDist = dist;
-                if (dist === 999) displayDist = 'No obstacle';
-                else displayDist = `${dist} cm`;
+                let displayDist = (dist === 999) ? 'No obstacle' : `${dist} cm`;
                 document.getElementById('obstacleValue').innerHTML = displayDist;
                 const obstacleCard = document.getElementById('obstacleCard');
-                if (dist < 100 && dist > 0) {
-                    obstacleCard.classList.add('alert');
-                } else {
-                    obstacleCard.classList.remove('alert');
-                }
+                if (dist < 100 && dist > 0) obstacleCard.classList.add('alert');
+                else obstacleCard.classList.remove('alert');
             } else {
                 document.getElementById('obstacleValue').innerHTML = '--';
             }
@@ -217,11 +200,8 @@
             if (battery !== null && battery !== undefined) {
                 document.getElementById('batteryValue').innerHTML = battery;
                 const batteryCard = document.getElementById('batteryCard');
-                if (battery < 20) {
-                    batteryCard.classList.add('alert');
-                } else {
-                    batteryCard.classList.remove('alert');
-                }
+                if (battery < 20) batteryCard.classList.add('alert');
+                else batteryCard.classList.remove('alert');
             } else {
                 document.getElementById('batteryValue').innerHTML = '--';
             }
@@ -233,6 +213,21 @@
             }
         }, 3000);
     });
+</script>
+
+<!-- Service Worker Registration (critical for PWABuilder/APK) -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(registration => {
+                    console.log('Service Worker registered successfully with scope:', registration.scope);
+                })
+                .catch(error => {
+                    console.log('Service Worker registration failed:', error);
+                });
+        });
+    }
 </script>
 </body>
 </html>
