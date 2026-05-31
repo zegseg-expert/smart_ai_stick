@@ -1,0 +1,13 @@
+{
+  "background_color": "#e71a56",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "smart AI stick",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "zegseg smart AI stick navigation",
+  "start_url": "https://zegseg-expert.github.io/smart_ai_stick/",
+  "theme_color": "#75ff5e",
+  "id": "zegseg",
+  "description": "welcome to smart AI stick"
+}
