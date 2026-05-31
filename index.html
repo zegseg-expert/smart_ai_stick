@@ -4,11 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Smart Walking Stick - Caregiver Dashboard</title>
+    
+    <!-- Link to your manifest file (for PWA/APK) -->
+    <link rel="manifest" href="manifest.json">
+    
     <!-- Leaflet CSS (for map) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -127,7 +133,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-    // ========== YOUR FIREBASE CONFIGURATION (REPLACE WITH YOURS) ==========
+    // ========== YOUR FIREBASE CONFIGURATION ==========
     const firebaseConfig = {
         apiKey: "AIzaSyAyt08_8kWXflYPVls7rzgjYVfuubpuHCM",
         authDomain: "smart-walking-stick-f8b20.firebaseapp.com",
@@ -137,24 +143,20 @@
         messagingSenderId: "267961230635",
         appId: "1:267961230635:web:a11cbd19428a5435e7916e"
     };
-    // ===================================================================
+    // =================================================
 
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    // Global map object
     let map;
     let marker;
     let isMapInitialized = false;
 
-    // Default center (Delhi – will update when GPS data arrives)
     const defaultLat = 28.6139;
     const defaultLng = 77.2090;
 
-    // Wait for DOM to load
     document.addEventListener('DOMContentLoaded', () => {
-        // Initialize map with default location
         map = L.map('map').setView([defaultLat, defaultLng], 13);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> & CartoDB',
@@ -162,21 +164,17 @@
             maxZoom: 19
         }).addTo(map);
         
-        // Add a default marker (will be replaced)
         marker = L.marker([defaultLat, defaultLng]).addTo(map);
         marker.bindPopup("Waiting for GPS fix...").openPopup();
         isMapInitialized = true;
 
-        // Listen to Firebase Realtime Database
         const deviceRef = database.ref('/smartstick/device_001');
         
-        // Listen for location changes
         deviceRef.child('location').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data && data.latitude && data.longitude) {
                 const lat = data.latitude;
                 const lng = data.longitude;
-                // Update map
                 if (marker) {
                     marker.setLatLng([lat, lng]);
                     marker.bindPopup(`📍 Current location<br>Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}`).openPopup();
@@ -184,7 +182,6 @@
                 }
                 document.getElementById('gpsStatusValue').innerHTML = '✅ Locked';
                 document.getElementById('gpsStatusValue').style.color = '#34a853';
-                // Show last update time with timestamp if available
                 if (data.timestamp) {
                     const date = new Date(data.timestamp * 1000);
                     document.getElementById('lastUpdate').innerHTML = `Last update: ${date.toLocaleTimeString()}`;
@@ -197,7 +194,6 @@
             }
         });
 
-        // Listen for sensor data (obstacle distance)
         deviceRef.child('sensors/obstacle_distance').on('value', (snapshot) => {
             const dist = snapshot.val();
             if (dist !== null && dist !== undefined) {
@@ -205,7 +201,6 @@
                 if (dist === 999) displayDist = 'No obstacle';
                 else displayDist = `${dist} cm`;
                 document.getElementById('obstacleValue').innerHTML = displayDist;
-                // Visual alert if obstacle < 100 cm
                 const obstacleCard = document.getElementById('obstacleCard');
                 if (dist < 100 && dist > 0) {
                     obstacleCard.classList.add('alert');
@@ -217,7 +212,6 @@
             }
         });
 
-        // Listen for battery status
         deviceRef.child('status/battery').on('value', (snapshot) => {
             const battery = snapshot.val();
             if (battery !== null && battery !== undefined) {
@@ -233,13 +227,11 @@
             }
         });
 
-        // If any data is missing, show waiting message
-        const checkAllData = () => {
+        setTimeout(() => {
             if (!document.getElementById('batteryValue').innerHTML.match(/\d/)) {
                 document.getElementById('lastUpdate').innerHTML = '⏳ Waiting for ESP32 to send data...';
             }
-        };
-        setTimeout(checkAllData, 3000);
+        }, 3000);
     });
 </script>
 </body>
