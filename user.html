@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Smart Walking Stick - User Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f4f8;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 500px;
+            width: 100%;
+            margin: 0 auto;
+            text-align: center;
+        }
+        h1 {
+            color: #1a73e8;
+            margin-bottom: 40px;
+            font-size: 28px;
+        }
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 60px;
+            padding: 20px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        button:active {
+            transform: scale(0.98);
+            background-color: #0d5bbf;
+        }
+        .info-panel {
+            background: white;
+            border-radius: 24px;
+            padding: 20px;
+            text-align: left;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .info-panel h2 {
+            font-size: 18px;
+            color: #5f6368;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        .info-panel p {
+            font-size: 16px;
+            margin: 12px 0;
+            color: #202124;
+        }
+        .info-panel span {
+            font-weight: bold;
+            color: #1a73e8;
+        }
+    </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🦯 Smart Assistant</h1>
+        <button id="readStatusBtn">📢 READ STATUS</button>
+        <div class="info-panel">
+            <h2>Live Data from Stick</h2>
+            <p>Obstacle Distance: <span id="obstacleValue">--</span> cm</p>
+            <p>Last Update: <span id="updateTime">--</span></p>
+        </div>
+    </div>
+
+    <script>
+        // Your Firebase configuration (same as before)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAyt08_8kWXflYPVls7rzgjYVfuubpuHCM",
+            authDomain: "smart-walking-stick-f8b20.firebaseapp.com",
+            databaseURL: "https://smart-walking-stick-f8b20-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "smart-walking-stick-f8b20",
+            storageBucket: "smart-walking-stick-f8b20.firebasestorage.app",
+            messagingSenderId: "267961230635",
+            appId: "1:267961230635:web:a11cbd19428a5435e7916e"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        let currentObstacleDistance = "unknown";
+
+        // Listen for obstacle updates from Firebase
+        const obstacleRef = database.ref('/smartstick/device_001/sensors/obstacle_distance');
+        obstacleRef.on('value', (snapshot) => {
+            const distance = snapshot.val();
+            if (distance !== null && distance !== undefined) {
+                currentObstacleDistance = `${distance}`;
+                document.getElementById('obstacleValue').innerText = distance;
+                document.getElementById('updateTime').innerText = new Date().toLocaleTimeString();
+            } else {
+                currentObstacleDistance = "no data";
+                document.getElementById('obstacleValue').innerText = '--';
+            }
+        });
+
+        // Text-to-speech function
+        function speak(text) {
+            if (!window.speechSynthesis) {
+                alert("Text-to-speech not supported on this browser.");
+                return;
+            }
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.9;
+            utterance.pitch = 1;
+            speechSynthesis.cancel();
+            speechSynthesis.speak(utterance);
+        }
+
+        // Read obstacle and location
+        function speakFullStatus() {
+            if (currentObstacleDistance === "no data" || currentObstacleDistance === "unknown") {
+                speak("The smart stick is not connected. No data received.");
+                return;
+            }
+
+            // Get user's location
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        const message = `Warning. Obstacle detected at ${currentObstacleDistance} centimeters. Your location is latitude ${lat.toFixed(4)}, longitude ${lng.toFixed(4)}.`;
+                        speak(message);
+                    },
+                    (error) => {
+                        console.error("Geolocation error:", error);
+                        const message = `Obstacle detected at ${currentObstacleDistance} centimeters. Cannot get your location.`;
+                        speak(message);
+                    }
+                );
+            } else {
+                speak(`Obstacle detected at ${currentObstacleDistance} centimeters. Your browser does not support location.`);
+            }
+        }
+
+        // Button click event
+        document.getElementById('readStatusBtn').addEventListener('click', () => {
+            speakFullStatus();
+        });
+    </script>
+</body>
+</html>
