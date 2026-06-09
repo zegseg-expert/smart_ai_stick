@@ -104,15 +104,14 @@
         messagingSenderId: "267961230635",
         appId: "1:267961230635:web:a11cbd19428a5435e7916e"
     };
-    // ====================================================
+    // =================================================
 
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    let currentObstacleDistance = "unknown";
+    let currentFrontDistance = "unknown";
     let voicesLoaded = false;
 
-    // ----- Helper: Show debug message (optional) -----
     function debug(msg) {
         const debugDiv = document.getElementById('debugMsg');
         if (debugDiv) debugDiv.innerText = msg;
@@ -139,7 +138,6 @@
                     debug(`Voices loaded after event: ${voices.length}`);
                     resolve(true);
                 });
-                // fallback timeout
                 setTimeout(() => {
                     if (!voicesLoaded) {
                         debug("Voice load timeout, continuing anyway.");
@@ -157,19 +155,13 @@
             alert("Text-to-speech not supported on this browser.");
             return;
         }
-        await loadVoices(); // ensure voices are ready
-
+        await loadVoices();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'en-US';
         utterance.rate = 0.9;
         utterance.pitch = 1;
         utterance.volume = 1;
-
-        // Cancel any ongoing speech to avoid overlapping
         speechSynthesis.cancel();
-
-        // On some WebViews, speaking immediately fails if voices aren't fully ready;
-        // a tiny delay helps.
         setTimeout(() => {
             speechSynthesis.speak(utterance);
         }, 50);
@@ -177,52 +169,51 @@
 
     // ----- Read obstacle and location -----
     async function speakFullStatus() {
-        if (currentObstacleDistance === "no data" || currentObstacleDistance === "unknown") {
+        if (currentFrontDistance === "no data" || currentFrontDistance === "unknown") {
             await speak("The smart stick is not connected. No data received.");
             return;
         }
 
-        // Get user's location via GPS
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
-                    const message = `Warning. Obstacle detected at ${currentObstacleDistance} centimeters. Your location is latitude ${lat.toFixed(4)}, longitude ${lng.toFixed(4)}.`;
+                    const message = `Warning. Obstacle detected at ${currentFrontDistance} centimeters. Your location is latitude ${lat.toFixed(4)}, longitude ${lng.toFixed(4)}.`;
                     await speak(message);
                 },
                 async (error) => {
                     console.error("Geolocation error:", error);
-                    const message = `Obstacle detected at ${currentObstacleDistance} centimeters. Cannot get your location.`;
+                    const message = `Obstacle detected at ${currentFrontDistance} centimeters. Cannot get your location.`;
                     await speak(message);
                 }
             );
         } else {
-            await speak(`Obstacle detected at ${currentObstacleDistance} centimeters. Your browser does not support location.`);
+            await speak(`Obstacle detected at ${currentFrontDistance} centimeters. Your browser does not support location.`);
         }
     }
 
-    // ----- Firebase listener for obstacle distance -----
-    const obstacleRef = database.ref('/smartstick/device_001/sensors/obstacle_distance');
-    obstacleRef.on('value', (snapshot) => {
+    // ----- Firebase listener for FRONT distance (not obstacle_distance) -----
+    const frontRef = database.ref('/smartstick/device_001/sensors/front_distance');
+    frontRef.on('value', (snapshot) => {
         const distance = snapshot.val();
         if (distance !== null && distance !== undefined) {
-            currentObstacleDistance = `${distance}`;
+            currentFrontDistance = `${distance}`;
             document.getElementById('obstacleValue').innerText = distance;
             document.getElementById('updateTime').innerText = new Date().toLocaleTimeString();
-            debug(`Obstacle updated: ${distance} cm`);
+            debug(`Front distance updated: ${distance} cm`);
         } else {
-            currentObstacleDistance = "no data";
+            currentFrontDistance = "no data";
             document.getElementById('obstacleValue').innerText = '--';
         }
     });
 
-    // ----- Button click handler -----
+    // ----- Button click -----
     document.getElementById('readStatusBtn').addEventListener('click', () => {
         speakFullStatus();
     });
 
-    // ----- Optional: Inform user that voices are ready -----
+    // ----- Inform user that voice is ready -----
     loadVoices().then(() => {
         debug("Voice ready. Press the button to hear status.");
     });
