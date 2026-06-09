@@ -3,18 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Smart Walking Stick - Caregiver Dashboard</title>
-    
-    <!-- Link to manifest.json (required for PWA/APK) -->
-    <link rel="manifest" href="manifest.json">
-    
+    <title>Smart Walking Stick – Caregiver Dashboard</title>
     <!-- Leaflet CSS for map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    
     <style>
         * {
             margin: 0;
@@ -101,14 +95,19 @@
             <div class="value" id="batteryValue">--</div>
             <div class="unit">%</div>
         </div>
-        <div class="stat" id="obstacleCard">
-            <div class="label">⚠️ Obstacle Distance</div>
-            <div class="value" id="obstacleValue">--</div>
+        <div class="stat" id="frontCard">
+            <div class="label">⚠️ Front Obstacle</div>
+            <div class="value" id="frontValue">--</div>
             <div class="unit">cm</div>
         </div>
-        <div class="stat" id="gpsStatus">
-            <div class="label">📍 GPS Status</div>
-            <div class="value" id="gpsStatusValue">--</div>
+        <div class="stat" id="downCard">
+            <div class="label">🕳️ Down Sensor (Hole)</div>
+            <div class="value" id="downValue">--</div>
+            <div class="unit">cm</div>
+        </div>
+        <div class="stat" id="fallCard">
+            <div class="label">🚨 Fall Status</div>
+            <div class="value" id="fallValue">--</div>
         </div>
     </div>
 
@@ -144,10 +143,11 @@
 
     let map;
     let marker;
-    const defaultLat = 28.6139;
-    const defaultLng = 77.2090;
+    const defaultLat = 9.5340;
+    const defaultLng = 6.4496;   // Abuja, Nigeria (example)
 
     document.addEventListener('DOMContentLoaded', () => {
+        // Initialize map
         map = L.map('map').setView([defaultLat, defaultLng], 13);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> & CartoDB',
@@ -159,7 +159,8 @@
         marker.bindPopup("Waiting for GPS fix...").openPopup();
 
         const deviceRef = database.ref('/smartstick/device_001');
-        
+
+        // ---- Location updates ----
         deviceRef.child('location').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data && data.latitude && data.longitude) {
@@ -168,8 +169,6 @@
                 marker.setLatLng([lat, lng]);
                 marker.bindPopup(`📍 Current location<br>Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}`).openPopup();
                 map.setView([lat, lng], 15);
-                document.getElementById('gpsStatusValue').innerHTML = '✅ Locked';
-                document.getElementById('gpsStatusValue').style.color = '#34a853';
                 if (data.timestamp) {
                     const date = new Date(data.timestamp * 1000);
                     document.getElementById('lastUpdate').innerHTML = `Last update: ${date.toLocaleTimeString()}`;
@@ -177,24 +176,52 @@
                     document.getElementById('lastUpdate').innerHTML = `Last update: Just now`;
                 }
             } else {
-                document.getElementById('gpsStatusValue').innerHTML = '⚠️ Waiting...';
-                document.getElementById('gpsStatusValue').style.color = '#f29900';
+                document.getElementById('lastUpdate').innerHTML = '⏳ Waiting for GPS data...';
             }
         });
 
-        deviceRef.child('sensors/obstacle_distance').on('value', (snapshot) => {
+        // ---- Front distance (obstacle) ----
+        deviceRef.child('sensors/front_distance').on('value', (snapshot) => {
             const dist = snapshot.val();
             if (dist !== null && dist !== undefined) {
-                let displayDist = (dist === 999) ? 'No obstacle' : `${dist} cm`;
-                document.getElementById('obstacleValue').innerHTML = displayDist;
-                const obstacleCard = document.getElementById('obstacleCard');
-                if (dist < 100 && dist > 0) obstacleCard.classList.add('alert');
-                else obstacleCard.classList.remove('alert');
+                let display = (dist === 999) ? 'No obstacle' : `${dist} cm`;
+                document.getElementById('frontValue').innerHTML = display;
+                const frontCard = document.getElementById('frontCard');
+                if (dist < 80 && dist > 0) frontCard.classList.add('alert');
+                else frontCard.classList.remove('alert');
             } else {
-                document.getElementById('obstacleValue').innerHTML = '--';
+                document.getElementById('frontValue').innerHTML = '--';
             }
         });
 
+        // ---- Down distance (hole detection) ----
+        deviceRef.child('sensors/down_distance').on('value', (snapshot) => {
+            const dist = snapshot.val();
+            if (dist !== null && dist !== undefined) {
+                let display = (dist === 999) ? 'No data' : `${dist} cm`;
+                document.getElementById('downValue').innerHTML = display;
+                const downCard = document.getElementById('downCard');
+                if (dist > 20 && dist < 999) downCard.classList.add('alert');
+                else downCard.classList.remove('alert');
+            } else {
+                document.getElementById('downValue').innerHTML = '--';
+            }
+        });
+
+        // ---- Fall detection ----
+        deviceRef.child('status/fall_detected').on('value', (snapshot) => {
+            const fall = snapshot.val();
+            if (fall !== null && fall !== undefined) {
+                document.getElementById('fallValue').innerHTML = fall ? '⚠️ FALL DETECTED' : '✅ Normal';
+                const fallCard = document.getElementById('fallCard');
+                if (fall) fallCard.classList.add('alert');
+                else fallCard.classList.remove('alert');
+            } else {
+                document.getElementById('fallValue').innerHTML = '--';
+            }
+        });
+
+        // ---- Battery level ----
         deviceRef.child('status/battery').on('value', (snapshot) => {
             const battery = snapshot.val();
             if (battery !== null && battery !== undefined) {
@@ -207,27 +234,13 @@
             }
         });
 
+        // Optional: if no data received after 10 seconds, show waiting message
         setTimeout(() => {
-            if (!document.getElementById('batteryValue').innerHTML.match(/\d/)) {
+            if (document.getElementById('frontValue').innerHTML === '--') {
                 document.getElementById('lastUpdate').innerHTML = '⏳ Waiting for ESP32 to send data...';
             }
-        }, 3000);
+        }, 5000);
     });
-</script>
-
-<!-- Service Worker Registration (critical for PWABuilder/APK) -->
-<script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(registration => {
-                    console.log('Service Worker registered successfully with scope:', registration.scope);
-                })
-                .catch(error => {
-                    console.log('Service Worker registration failed:', error);
-                });
-        });
-    }
 </script>
 </body>
 </html>
